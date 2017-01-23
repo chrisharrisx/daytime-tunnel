@@ -184,7 +184,7 @@ void send_request(char *fwd_address, int fwd_port, int connfd, char *hostname, c
     perror("write() error");
   }
   else {
-    printf("Sending response to %s %s: %s\n", hostname, ip_address, buff);
+    printf("Sending response to %s %s: %s", hostname, ip_address, buff);
   }
   
   close(connfd);
