@@ -15,26 +15,22 @@
 #define ADDRESS_SIZE 128
 #define HOSTMAX 255
 #define IPMAX 128
-#define LISTENQ 1024 /* 2nd argument to listen() */
-#define MAXLINE 4096 /* max text line length */
+#define LISTENQ 1024
+#define MAXLINE 4096
 #define SERVICEMAX 32
 
-void send_request(char *, int, int, char *, char *);
+void send_request_and_respond(char *, int, int, char *, char *);
 void get_ip_from_hostname(char *dest, char **ip_address);
  
 int main(int argc, char **argv) {
   socklen_t addr_size = sizeof(struct sockaddr);
-  // char buff[MAXLINE];
   char recvline[MAXLINE + 1];
   char *hostname = (char *) malloc(HOSTMAX);
   char *ip_address = (char *) malloc(ADDRESS_SIZE);
-  //char *server_hostname = (char *) malloc(HOSTMAX);
-  //char *server_ip_address = (char *) malloc(ADDRESS_SIZE);
   int listenfd, connfd;
   char service_type[SERVICEMAX];
   struct sockaddr_in servaddr;
   struct sockaddr_in clientaddr;
-  //time_t ticks;
 
   if (argc < 2) {
     printf("Usage: %s <port number>\n", argv[0]);
@@ -67,8 +63,8 @@ int main(int argc, char **argv) {
   listen(listenfd, LISTENQ);
  
   for ( ; ; ) {
+    // Listen for connections from client
     connfd = accept(listenfd, (struct sockaddr *) &clientaddr, &addr_size);
-    //ticks = time(NULL);
     char fwd_address[HOSTMAX];
     int fwd_port = -1;
 
@@ -78,9 +74,7 @@ int main(int argc, char **argv) {
     }
     getnameinfo((struct sockaddr *) &clientaddr, sizeof(clientaddr), hostname, HOSTMAX, service_type, SERVICEMAX, 0);
 
-    /*
-        Now that client is connected, wait to receive forwarding address
-    */
+    // Client is now connected, wait to receive forwarding address
     int n;
 
     while ((n = read(connfd, recvline, MAXLINE)) > 0) {
@@ -100,21 +94,15 @@ int main(int argc, char **argv) {
       exit(1);
     }
 
-    /*
-        Forwarding address has been received
-        Contact server, wait for reply and send response to client
-
-    */
-    send_request(fwd_address, fwd_port, connfd, hostname, ip_address);
+    // Forwarding address has been received.
+    // Contact server, wait for reply, then send response to client
+    send_request_and_respond(fwd_address, fwd_port, connfd, hostname, ip_address);
   }
 }
 
-void send_request(char *fwd_address, int fwd_port, int connfd, char *hostname, char *ip_address) {
+void send_request_and_respond(char *fwd_address, int fwd_port, int connfd, char *hostname, char *ip_address) {
   bool fwd_hostname_set = false;
-  //char fwd_buff[MAXLINE];
-  //char fwd_recvline[MAXLINE + 1];
   char *fwd_hostname = (char *) malloc(HOSTMAX);
-  // char *secondary_hostname = (char *) malloc(HOSTMAX);
   char *fwd_ip_address = (char *) malloc(IPMAX);
   char buff[MAXLINE];
   char response[MAXLINE];
@@ -143,7 +131,6 @@ void send_request(char *fwd_address, int fwd_port, int connfd, char *hostname, c
   fwd_servaddr.sin_family = AF_INET;
   fwd_servaddr.sin_port = htons(fwd_port); /* daytime server */
 
-  // Copy IP address to servaddr struct
   if (inet_pton(AF_INET, fwd_ip_address, &fwd_servaddr.sin_addr) <= 0) {
     printf("inet_pton error for %s\n", fwd_address);
     exit(1);
@@ -175,9 +162,7 @@ void send_request(char *fwd_address, int fwd_port, int connfd, char *hostname, c
 
   close(fwd_sockfd);
 
-  /*
-      Send response to client
-  */
+  // Send response to client
   int return_value;
   snprintf(buff, sizeof(buff), "%.26s\r\n", response);
   if ((return_value = write(connfd, buff, strlen(buff))) == -1) {
@@ -209,4 +194,3 @@ void get_ip_from_hostname(char *dest, char **ip_address) {
 
   freeaddrinfo(infoptr);
 }
- 
